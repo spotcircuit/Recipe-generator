@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Recipe Suggestions</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.8.1/font/bootstrap-icons.css">
+  <link rel="stylesheet" href="/css/style.css">
+  <style>
+    .recipe-card {
+      transition: all 0.3s ease-in-out;
+    }
+    .cuisine-section {
+      margin-bottom: 2rem;
+    }
+    .tag-badge {
+      font-size: 0.8rem;
+      padding: 0.25rem 0.5rem;
+      margin-right: 0.5rem;
+      margin-bottom: 0.5rem;
+    }
+    .collapsible-section {
+      border: 1px solid rgba(0,0,0,.125);
+      border-radius: 0.25rem;
+      overflow: hidden;
+      margin-bottom: 1rem;
+    }
+    .collapsible-header {
+      padding: 1rem;
+      background-color: rgba(0,0,0,.03);
+      cursor: pointer;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .collapsible-content {
+      max-height: 0;
+      overflow: hidden;
+      transition: max-height 0.5s ease;
+    }
+    .collapsible-content.open {
+      max-height: 3000px;
+    }
+    .ingredient-badge {
+      display: inline-block;
+      margin-right: 5px;
+      margin-bottom: 5px;
+      padding: 4px 8px;
+      border-radius: 4px;
+    }
+    .has-ingredient {
+      background-color: #d4edda;
+      color: #155724;
+    }
+    .missing-ingredient {
+      background-color: #f8f9fa;
+      color: #6c757d;
+    }
+    .recipe-details {
+      max-height: 0;
+      overflow: hidden;
+      transition: max-height 0.3s ease-out;
+    }
+    .recipe-details.open {
+      max-height: 2000px;
+    }
+    .recipe-card {
+      cursor: pointer;
+      position: relative;
+    }
+    .expand-indicator {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      font-size: 1.2rem;
+    }
+    .available-ingredient {
+      color: #198754;
+      font-weight: 500;
+    }
+  </style>
+</head>
+<body>
+  <div class="container my-5">
+    <div class="row justify-content-center">
+      <div class="col-md-10">
+        <div class="card shadow">
+          <div class="card-header bg-primary text-white">
+            <h1 class="text-center mb-0">Recipe Suggestions</h1>
+          </div>
+          <div class="card-body">
+            <div class="row mb-4">
+              <div class="col-md-<%= imagePath ? '6' : '12' %>">
+                <div class="card mb-3">
+                  <div class="card-header bg-secondary text-white">
+                    <h3 class="mb-0">Detected Ingredients</h3>
+                  </div>
+                  <div class="card-body">
+                    <div class="ingredient-tags">
+                      <% const uniqueIngredients = [...new Set(ingredients.map(i => i.toLowerCase()))]; %>
+                      <% uniqueIngredients.forEach(ingredient => { %>
+                        <div class="ingredient-tag"><%= ingredient %></div>
+                      <% }); %>
+                    </div>
+                    <div class="mt-3">
+                      <% if (typeof isLocalMode !== 'undefined' && isLocalMode) { %>
+                        <p class="text-muted small">
+                          <span class="badge bg-warning text-dark">LOCAL MODE</span> 
+                          This is running in local mode with mock data. In the full version, ingredients would be detected using OpenAI's Vision API.
+                        </p>
+                      <% } else { %>
+                        <p class="text-muted small">These ingredients were detected using OpenAI's Vision API with the GPT-4o-mini model (or transcribed from your voice). Results may vary based on image quality or voice clarity.</p>
+                      <% } %>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <% if (imagePath) { %>
+              <div class="col-md-6">
+                <div class="card mb-3">
+                  <div class="card-header bg-secondary text-white">
+                    <h3 class="mb-0">Your Image</h3>
+                  </div>
+                  <div class="card-body text-center">
+                    <img src="<%= imagePath %>" alt="Uploaded food image" class="img-fluid rounded" style="max-height: 250px;">
+                  </div>
+                </div>
+              </div>
+              <% } %>
+            </div>
+
+            <% 
+            // Group recipes by cuisine type
+            const recipesByCuisine = {};
+            recipes.forEach(recipe => {
+              const cuisine = recipe.cuisineType || 'Other';
+              if (!recipesByCuisine[cuisine]) {
+                recipesByCuisine[cuisine] = [];
+              }
+              recipesByCuisine[cuisine].push(recipe);
+            });
+            %>
+
+            <h2 class="mb-4 text-center">Recipe Ideas by Cuisine</h2>
+
+            <% Object.keys(recipesByCuisine).forEach((cuisine, cuisineIndex) => { %>
+              <div class="collapsible-section" id="cuisine-<%= cuisineIndex %>">
+                <div class="collapsible-header" onclick="toggleCollapsible('cuisine-<%= cuisineIndex %>')">
+                  <h3 class="mb-0"><%= cuisine %> Cuisine</h3>
+                  <i class="bi bi-chevron-down" id="cuisine-<%= cuisineIndex %>-icon"></i>
+                </div>
+                <div class="collapsible-content" id="cuisine-<%= cuisineIndex %>-content">
+                  <div class="p-3">
+                    <div class="row">
+                      <% recipesByCuisine[cuisine].forEach((recipe, index) => { %>
+                        <div class="col-md-6 mb-4">
+                          <div class="card recipe-card h-100" onclick="toggleRecipeDetails('<%= cuisineIndex %>-<%= index %>')">
+                            <div class="card-header bg-<%= index % 2 === 0 ? 'info' : 'success' %> text-white">
+                              <h4 class="mb-0"><%= recipe.name %></h4>
+                              <div class="expand-indicator">
+                                <i class="bi bi-plus-circle" id="recipe-<%= cuisineIndex %>-<%= index %>-expand"></i>
+                              </div>
+                            </div>
+                            <div class="card-body">
+                              <div class="mb-3">
+                                <span class="badge bg-secondary"><%= recipe.difficulty || 'Medium' %></span>
+                                <span class="badge bg-info ms-1"><%= recipe.cookingTime || '30 minutes' %></span>
+                              </div>
+
+                              <h5>Ingredients:</h5>
+                              <div class="mb-3">
+                                <% (recipe.ingredients || []).slice(0, 5).forEach(ingredient => { 
+                                  const ingredientLower = ingredient.toLowerCase();
+
+                                  // Enhanced matching algorithm with broader recognition
+                                  let hasIngredient = false;
+
+                                  // Check for common food terms and variations
+                                  const commonVariations = {
+                                    'egg': ['egg', 'eggs', 'fried egg', 'boiled egg', 'scrambled egg'],
+                                    'cheese': ['cheese', 'cheddar', 'cheddar cheese', 'american cheese', 'cheese slice'],
+                                    'bacon': ['bacon', 'bacon strips', 'bacon slice', 'crispy bacon'],
+                                    'beef': ['beef', 'ground beef', 'minced beef', 'steak', 'beef patty', 'hamburger', 'meatloaf'],
+                                    'bread': ['bread', 'toast', 'bun', 'english muffin', 'biscuit']
+                                  };
+
+                                  // Try to match ingredient against detected ingredients with variations
+                                  for (const i of uniqueIngredients) {
+                                    const iLower = i.toLowerCase();
+
+                                    // Direct match
+                                    if (ingredientLower.includes(iLower) || iLower.includes(ingredientLower)) {
+                                      hasIngredient = true;
+                                      break;
+                                    }
+
+                                    // Plural/singular forms
+                                    if ((iLower.endsWith('s') && ingredientLower.includes(iLower.slice(0, -1))) ||
+                                        (ingredientLower.endsWith('s') && ingredientLower.slice(0, -1).includes(iLower))) {
+                                      hasIngredient = true;
+                                      break;
+                                    }
+
+                                    // Check common variations
+                                    for (const [baseIngredient, variations] of Object.entries(commonVariations)) {
+                                      if ((variations.includes(iLower) && variations.some(v => ingredientLower.includes(v))) ||
+                                          (variations.includes(ingredientLower) && variations.some(v => iLower.includes(v)))) {
+                                        hasIngredient = true;
+                                        break;
+                                      }
+                                    }
+                                  }
+                                %>
+                                  <span class="ingredient-badge <%= hasIngredient ? 'has-ingredient' : 'missing-ingredient' %>">
+                                    <%= ingredient %>
+                                    <% if (hasIngredient) { %>
+                                      <i class="bi bi-check"></i>
+                                    <% } %>
+                                  </span>
+                                <% }); %>
+                                <% if ((recipe.ingredients || []).length > 5) { %>
+                                  <small class="text-muted">+<%= recipe.ingredients.length - 5 %> more</small>
+                                <% } %>
+                              </div>
+
+                              <div class="recipe-details" id="recipe-<%= cuisineIndex %>-<%= index %>-details">
+                                <h5>All Ingredients:</h5>
+                                <ol>
+                                  <% (recipe.ingredients || []).forEach(ingredient => { 
+                                    let hasIngredient = false;
+                                    let matchedIngredient = '';
+                                    
+                                    // Check if this ingredient is one of the available ingredients
+                                    for (let i = 0; i < ingredients.length; i++) {
+                                      if (ingredient.toLowerCase().includes(ingredients[i].toLowerCase())) {
+                                        hasIngredient = true;
+                                        matchedIngredient = ingredients[i];
+                                        break;
+                                      }
+                                      
+                                      // Also check for common variations (egg/eggs, etc.)
+                                      if (ingredients[i].toLowerCase() === 'egg' && ingredient.toLowerCase().includes('eggs')) {
+                                        hasIngredient = true;
+                                        matchedIngredient = 'eggs';
+                                        break;
+                                      }
+                                      
+                                      if (ingredients[i].toLowerCase() === 'eggs' && ingredient.toLowerCase().includes('egg')) {
+                                        hasIngredient = true;
+                                        matchedIngredient = 'eggs';
+                                        break;
+                                      }
+                                      
+                                      // Check for bacon and similar ingredients
+                                      if ((ingredients[i].toLowerCase() === 'bacon' && 
+                                          (ingredient.toLowerCase().includes('bacon') || 
+                                           ingredient.toLowerCase().includes('pork')))) {
+                                        hasIngredient = true;
+                                        matchedIngredient = 'bacon';
+                                        break;
+                                      }
+                                    }
+                                  %>
+                                    <li<% if (hasIngredient) { %> class="available-ingredient"<% } %>>
+                                      <%= ingredient %>
+                                      <% if (hasIngredient) { %>
+                                        <span class="badge bg-success">✓ You have <%= matchedIngredient %></span>
+                                      <% } %>
+                                    </li>
+                                  <% }); %>
+                                </ol>
+
+                                <h5>Instructions:</h5>
+                                <p><%= recipe.instructions %></p>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      <% }); %>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            <% }); %>
+
+            <div class="text-center mt-4">
+              <a href="/" class="btn btn-primary">Try Again</a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Auto-open the first cuisine section
+    document.addEventListener('DOMContentLoaded', function() {
+      toggleCollapsible('cuisine-0');
+    });
+
+    function toggleCollapsible(id) {
+      const content = document.getElementById(id + '-content');
+      const icon = document.getElementById(id + '-icon');
+
+      content.classList.toggle('open');
+
+      if (content.classList.contains('open')) {
+        icon.classList.remove('bi-chevron-down');
+        icon.classList.add('bi-chevron-up');
+      } else {
+        icon.classList.remove('bi-chevron-up');
+        icon.classList.add('bi-chevron-down');
+      }
+    }
+
+    function toggleRecipeDetails(id) {
+      const details = document.getElementById('recipe-' + id + '-details');
+      const icon = document.getElementById('recipe-' + id + '-expand');
+
+      details.classList.toggle('open');
+
+      if (details.classList.contains('open')) {
+        icon.classList.remove('bi-plus-circle');
+        icon.classList.add('bi-dash-circle');
+      } else {
+        icon.classList.remove('bi-dash-circle');
+        icon.classList.add('bi-plus-circle');
+      }
+    }
+  </script>
+</body>
+</html>

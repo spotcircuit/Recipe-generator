@@ -1,0 +1,835 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Recipe Generator</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.3/font/bootstrap-icons.css">
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <div class="container py-4">
+    <header class="pb-3 mb-4 border-bottom">
+      <div class="d-flex align-items-center text-dark text-decoration-none">
+        <i class="bi bi-book me-2" style="font-size: 2rem; color: #4361ee;"></i>
+        <span class="fs-4 fw-bold">Recipe Generator</span>
+      </div>
+    </header>
+
+    <div class="p-4 mb-4 bg-light rounded-3">
+      <div class="container-fluid">
+        <h1 class="display-5 fw-bold mb-4">Generate Recipe Ideas</h1>
+        <p class="col-md-8 fs-5">Use your food ingredients to create delicious recipes.</p>
+
+        <% if (typeof error !== 'undefined') { %>
+          <div class="alert alert-danger" role="alert">
+            <%= error %>
+          </div>
+        <% } %>
+
+        <!-- Input method selection - Original 3-button layout -->
+        <div class="row">
+          <div class="col-12 text-center mb-4">
+            <div class="input-actions">
+              <div id="camera-method-btn" class="input-method-btn bg-primary text-white shadow">
+                <i class="bi bi-camera"></i>
+              </div>
+              <div id="upload-method-btn" class="input-method-btn bg-success text-white shadow">
+                <i class="bi bi-image"></i>
+              </div>
+              <div id="voice-method-btn" class="input-method-btn bg-info text-white shadow">
+                <i class="bi bi-mic"></i>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Different input methods -->
+        <div class="row mb-4">
+          <div class="col-md-12">
+            <!-- Camera Input -->
+            <div id="camera-input" class="d-none">
+              <div class="card shadow-sm">
+                <div class="card-header bg-primary text-white">
+                  <i class="bi bi-camera-fill me-2"></i>Take a Picture
+                </div>
+                <div class="card-body">
+                  <p class="card-text">Take a photo of your ingredients using your device camera.</p>
+                  <div class="text-center mb-3 camera-container">
+                    <video id="camera-preview" class="img-fluid rounded camera-preview" style="max-height:300px; display:none;" playsinline autoplay muted></video>
+                    <canvas id="capture-canvas" style="display:none;"></canvas>
+                    <img id="captured-image" class="img-fluid rounded" style="max-height:300px; display:none;">
+                  </div>
+                  <div class="d-flex justify-content-between">
+                    <button id="camera-start-btn" class="btn btn-primary"><i class="bi bi-camera-fill me-2"></i>Start Camera</button>
+                    <button id="capture-btn" class="btn btn-success d-none"><i class="bi bi-camera-fill me-2"></i>Capture</button>
+                    <button id="retake-btn" class="btn btn-secondary d-none"><i class="bi bi-arrow-repeat me-2"></i>Retake</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Upload Input -->
+            <div id="upload-input" class="d-none">
+              <div class="card shadow-sm">
+                <div class="card-header bg-success text-white">
+                  <i class="bi bi-image me-2"></i>Upload an Image
+                </div>
+                <div class="card-body">
+                  <form action="/upload" method="POST" enctype="multipart/form-data" id="upload-form">
+                    <div class="mb-3">
+                      <label for="food_image" class="form-label">Select an image of your food ingredients</label>
+                      <input class="form-control" type="file" id="food_image" name="food_image" accept="image/*">
+                    </div>
+                    <div id="image-preview-container" class="text-center mb-3" style="display:none;">
+                      <img id="image-preview" class="img-fluid rounded" style="max-height:300px;">
+                    </div>
+
+                    <!-- Cuisine selection - small icon grid -->
+                    <div class="mb-3" id="cuisine-selection-upload">
+                      <label class="form-label">Select cuisine types (optional)</label>
+                      <div class="cuisine-buttons row row-cols-4 row-cols-sm-5 row-cols-md-8 g-2" id="cuisine-buttons-upload">
+                        <!-- Dynamically filled -->
+                      </div>
+                    </div>
+
+                    <button type="submit" class="btn btn-success">
+                      <i class="bi bi-upload me-2"></i>Generate Recipes
+                    </button>
+                  </form>
+                </div>
+              </div>
+            </div>
+
+            <!-- Voice Input -->
+            <div id="voice-input" class="d-none">
+              <div class="card shadow-sm">
+                <div class="card-header bg-info text-white">
+                  <i class="bi bi-mic-fill me-2"></i>Speak Your Ingredients
+                </div>
+                <div class="card-body">
+                  <p class="card-text">Speak the names of the ingredients you have. Speak clearly and pause between ingredients.</p>
+
+                  <div class="mb-3">
+                    <label for="voice-text" class="form-label">Ingredients detected:</label>
+                    <div id="voice-text" class="form-control bg-light"></div>
+                  </div>
+
+                  <div class="mb-3" id="voice-ingredients-container">
+                    <label class="form-label">Ingredients list:</label>
+                    <div id="voice-ingredients" class="p-2 rounded bg-light">
+                      <p class="text-muted mb-0" id="no-ingredients-message">No ingredients detected yet. Start speaking to add ingredients.</p>
+                    </div>
+                  </div>
+
+                  <!-- Cuisine selection for voice input - small icon grid -->
+                  <div class="mb-3" id="cuisine-selection-voice">
+                    <label class="form-label">Select cuisine types (optional)</label>
+                    <div class="cuisine-buttons row row-cols-4 row-cols-sm-5 row-cols-md-8 g-2" id="cuisine-buttons-voice">
+                      <!-- Dynamically filled -->
+                    </div>
+                  </div>
+
+                  <div class="d-flex justify-content-between">
+                    <button id="voice-start-btn" class="btn btn-info">
+                      <i class="bi bi-mic-fill me-2"></i>Start Recording
+                    </button>
+                    <button id="voice-stop-btn" class="btn d-none">
+                      <i class="bi bi-stop-fill me-2"></i>Stop Recording
+                    </button>
+                    <button id="voice-submit-btn" class="btn btn-success d-none">
+                      <i class="bi bi-check-circle-fill me-2"></i>Generate Recipes
+                    </button>
+                  </div>
+
+                  <form id="voice-form" action="/voice-input" method="POST" class="d-none">
+                    <input type="hidden" id="voice-ingredients-input" name="ingredients" value="">
+                    <input type="hidden" id="voice-cuisine-types" name="cuisineTypes" value="">
+                  </form>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <footer class="pt-3 mt-4 text-muted border-top">
+      &copy; 2023 Recipe Generator
+    </footer>
+  </div>
+
+  <!-- Loading Spinner -->
+  <div id="loading-spinner" class="position-fixed top-0 start-0 w-100 h-100 d-flex justify-content-center align-items-center d-none">
+    <div class="spinner-container text-white text-center p-4">
+      <div class="spinner-border text-light mb-3" role="status" style="width: 3rem; height: 3rem;">
+        <span class="visually-hidden">Loading...</span>
+      </div>
+      <p class="mb-0 fs-5">Analyzing ingredients and generating recipes...<br>This may take a moment.</p>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
+  <script>
+    // Cuisine types data
+    let cuisineTypes = [];
+
+    // DOM Elements
+    let cameraMethodBtn, uploadMethodBtn, voiceMethodBtn;
+    let cameraInput, uploadInput, voiceInput;
+    let cameraPreview, captureCanvas, capturedImage;
+    let cameraStartBtn, captureBtn, retakeBtn;
+    let imagePreview, imagePreviewContainer;
+    let voiceStartBtn, voiceStopBtn, voiceSubmitBtn;
+    let voiceTextDisplay, voiceIngredientsDisplay, noIngredientsMessage;
+    let uploadForm, voiceForm, voiceIngredientsInput, voiceCuisineTypes;
+    let loadingSpinner;
+    let cuisineButtonsUpload, cuisineButtonsVoice;
+
+    // Speech recognition variables
+    let recognition = null;
+    let isRecording = false;
+    let mediaStream = null;
+    let detectedIngredients = [];
+    let selectedCuisineTypes = [];
+    let recordingTimeout = null;
+
+    // Initialize the app when the DOM is fully loaded
+    document.addEventListener('DOMContentLoaded', initApp);
+
+    function initApp() {
+      // Initialize DOM elements
+      initElements();
+
+      // Fetch cuisine types from the API
+      fetchCuisineTypes();
+
+      // Initialize method buttons
+      initMethodButtons();
+
+      // Initialize file upload preview
+      initFileUploadPreview();
+
+      // Initialize form submission events
+      initFormSubmission();
+
+      // Setup speech recognition
+      setupSpeechRecognition();
+
+      // Initialize camera functionality
+      initCamera();
+
+      console.log("Application initialized");
+    }
+
+    function initElements() {
+      // Method buttons
+      cameraMethodBtn = document.getElementById('camera-method-btn');
+      uploadMethodBtn = document.getElementById('upload-method-btn');
+      voiceMethodBtn = document.getElementById('voice-method-btn');
+
+      // Input containers
+      cameraInput = document.getElementById('camera-input');
+      uploadInput = document.getElementById('upload-input');
+      voiceInput = document.getElementById('voice-input');
+
+      // Camera elements
+      cameraPreview = document.getElementById('camera-preview');
+      captureCanvas = document.getElementById('capture-canvas');
+      capturedImage = document.getElementById('captured-image');
+      cameraStartBtn = document.getElementById('camera-start-btn');
+      captureBtn = document.getElementById('capture-btn');
+      retakeBtn = document.getElementById('retake-btn');
+
+      // Upload elements
+      imagePreview = document.getElementById('image-preview');
+      imagePreviewContainer = document.getElementById('image-preview-container');
+
+      // Voice elements
+      voiceStartBtn = document.getElementById('voice-start-btn');
+      voiceStopBtn = document.getElementById('voice-stop-btn');
+      voiceSubmitBtn = document.getElementById('voice-submit-btn');
+      voiceTextDisplay = document.getElementById('voice-text');
+      voiceIngredientsDisplay = document.getElementById('voice-ingredients');
+      noIngredientsMessage = document.getElementById('no-ingredients-message');
+
+      // Forms
+      uploadForm = document.getElementById('upload-form');
+      voiceForm = document.getElementById('voice-form');
+      voiceIngredientsInput = document.getElementById('voice-ingredients-input');
+      voiceCuisineTypes = document.getElementById('voice-cuisine-types');
+
+      // Loading spinner
+      loadingSpinner = document.getElementById('loading-spinner');
+
+      // Cuisine buttons containers
+      cuisineButtonsUpload = document.getElementById('cuisine-buttons-upload');
+      cuisineButtonsVoice = document.getElementById('cuisine-buttons-voice');
+    }
+
+    function initMethodButtons() {
+      if (cameraMethodBtn) {
+        cameraMethodBtn.addEventListener('click', () => {
+          showInputMethod('camera');
+        });
+      }
+
+      if (uploadMethodBtn) {
+        uploadMethodBtn.addEventListener('click', () => {
+          showInputMethod('upload');
+        });
+      }
+
+      if (voiceMethodBtn) {
+        voiceMethodBtn.addEventListener('click', () => {
+          showInputMethod('voice');
+        });
+      }
+
+      console.log("Method buttons initialized");
+    }
+
+    function showInputMethod(method) {
+      // Hide all input methods
+      cameraInput.classList.add('d-none');
+      uploadInput.classList.add('d-none');
+      voiceInput.classList.add('d-none');
+
+      // Show the selected input method
+      if (method === 'camera') {
+        cameraInput.classList.remove('d-none');
+      } else if (method === 'upload') {
+        uploadInput.classList.remove('d-none');
+      } else if (method === 'voice') {
+        voiceInput.classList.remove('d-none');
+      }
+    }
+
+    function initFileUploadPreview() {
+      const fileInput = document.getElementById('food_image');
+      if (fileInput) {
+        fileInput.addEventListener('change', function() {
+          if (this.files && this.files[0]) {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+              imagePreview.src = e.target.result;
+              imagePreviewContainer.style.display = 'block';
+            }
+            reader.readAsDataURL(this.files[0]);
+          }
+        });
+      }
+    }
+
+    function initFormSubmission() {
+      // Show loading spinner when forms are submitted
+      if (uploadForm) {
+        uploadForm.addEventListener('submit', function(e) {
+          // Get selected cuisine types
+          const selectedCuisines = Array.from(document.querySelectorAll('#cuisine-buttons-upload .cuisine-button.active'))
+            .map(button => button.dataset.cuisine);
+
+          // Add to hidden input if there are selections
+          if (selectedCuisines.length > 0) {
+            const cuisineTypesInput = document.createElement('input');
+            cuisineTypesInput.type = 'hidden';
+            cuisineTypesInput.name = 'cuisineTypes';
+            cuisineTypesInput.value = JSON.stringify(selectedCuisines);
+            this.appendChild(cuisineTypesInput);
+          }
+
+          loadingSpinner.classList.remove('d-none');
+        });
+      }
+
+      // Voice form submission
+      if (voiceSubmitBtn) {
+        voiceSubmitBtn.addEventListener('click', function() {
+          if (detectedIngredients.length === 0) {
+            alert("Please record some ingredients first");
+            return;
+          }
+
+          // Update hidden inputs
+          voiceIngredientsInput.value = JSON.stringify(detectedIngredients);
+
+          // Get selected cuisine types
+          const selectedCuisines = Array.from(document.querySelectorAll('#cuisine-buttons-voice .cuisine-button.active'))
+            .map(button => button.dataset.cuisine);
+
+          voiceCuisineTypes.value = JSON.stringify(selectedCuisines);
+
+          console.log("Submitting ingredients:", detectedIngredients);
+
+          // Show loading spinner
+          loadingSpinner.classList.remove('d-none');
+
+          // Submit the form
+          voiceForm.submit();
+        });
+      }
+    }
+
+    function fetchCuisineTypes() {
+      fetch('/api/cuisine-types')
+        .then(response => response.json())
+        .then(data => {
+          cuisineTypes = data;
+          renderCuisineButtons();
+        })
+        .catch(error => {
+          console.error('Error fetching cuisine types:', error);
+          // Fallback cuisine types
+          cuisineTypes = [
+            { id: 'american', name: 'American' },
+            { id: 'italian', name: 'Italian' },
+            { id: 'mexican', name: 'Mexican' },
+            { id: 'asian', name: 'Asian' },
+            { id: 'indian', name: 'Indian' },
+            { id: 'mediterranean', name: 'Mediterranean' },
+            { id: 'french', name: 'French' },
+            { id: 'bbq', name: 'BBQ' }
+          ];
+          renderCuisineButtons();
+        });
+    }
+
+    function renderCuisineButtons() {
+      if (!cuisineButtonsUpload || !cuisineButtonsVoice) return;
+
+      // Clear existing buttons
+      cuisineButtonsUpload.innerHTML = '';
+      cuisineButtonsVoice.innerHTML = '';
+
+      // Create buttons for each cuisine type
+      cuisineTypes.forEach(cuisine => {
+        // For upload form
+        const uploadButton = createCuisineButton(cuisine);
+        cuisineButtonsUpload.appendChild(uploadButton);
+
+        // For voice form
+        const voiceButton = createCuisineButton(cuisine);
+        cuisineButtonsVoice.appendChild(voiceButton);
+      });
+
+      console.log(`Initialized ${cuisineTypes.length} cuisine buttons`);
+    }
+
+    function createCuisineButton(cuisine) {
+      const col = document.createElement('div');
+      col.className = 'col';
+
+      const button = document.createElement('div');
+      button.className = 'cuisine-button cuisine-icon-button';
+      button.dataset.cuisine = cuisine.id;
+
+      let icon = '';
+      switch (cuisine.id) {
+        case 'american':
+          icon = 'bi-flag';
+          break;
+        case 'italian':
+          icon = 'bi-pie-chart';
+          break;
+        case 'mexican':
+          icon = 'bi-flower1';
+          break;
+        case 'asian':
+          icon = 'bi-yin-yang';
+          break;
+        case 'indian':
+          icon = 'bi-fire';
+          break;
+        case 'mediterranean':
+          icon = 'bi-sun';
+          break;
+        case 'french':
+          icon = 'bi-cup-hot';
+          break;
+        case 'bbq':
+          icon = 'bi-thermometer-high';
+          break;
+        default:
+          icon = 'bi-egg-fried';
+      }
+
+      button.innerHTML = `
+        <i class="bi ${icon} cuisine-icon"></i>
+        <span class="cuisine-name">${cuisine.name}</span>
+      `;
+
+      button.addEventListener('click', function() {
+        this.classList.toggle('active');
+      });
+
+      col.appendChild(button);
+      return col;
+    }
+
+    // Camera functionality
+    function initCamera() {
+      if (cameraStartBtn) {
+        cameraStartBtn.addEventListener('click', startCamera);
+      }
+
+      if (captureBtn) {
+        captureBtn.addEventListener('click', captureImage);
+      }
+
+      if (retakeBtn) {
+        retakeBtn.addEventListener('click', retakePhoto);
+      }
+
+      console.log("Camera buttons initialized");
+    }
+
+    function startCamera() {
+      try {
+        // Use standard getUserMedia
+        const constraints = { 
+          video: { 
+            facingMode: "environment",
+            width: { ideal: 1280 },
+            height: { ideal: 720 } 
+          }
+        };
+
+        navigator.mediaDevices.getUserMedia(constraints)
+          .then(stream => {
+            cameraPreview.srcObject = stream;
+            mediaStream = stream;
+
+            cameraPreview.style.display = 'block';
+            cameraStartBtn.classList.add('d-none');
+            captureBtn.classList.remove('d-none');
+
+            // Make sure video plays
+            cameraPreview.play().catch(e => {
+              console.error("Error playing video:", e);
+            });
+          })
+          .catch(err => {
+            console.error("Camera error:", err);
+
+            // Fall back to file input if camera fails
+            const fileInput = document.createElement('input');
+            fileInput.type = 'file';
+            fileInput.accept = 'image/*';
+            fileInput.capture = 'environment';
+
+            fileInput.addEventListener('change', function() {
+              if (this.files && this.files[0]) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                  capturedImage.src = e.target.result;
+                  capturedImage.style.display = 'block';
+                  cameraPreview.style.display = 'none';
+                  cameraStartBtn.classList.add('d-none');
+                  captureBtn.classList.remove('d-none');
+                  retakeBtn.classList.remove('d-none');
+                };
+                reader.readAsDataURL(this.files[0]);
+              }
+            });
+
+            fileInput.click();
+          });
+      } catch (err) {
+        console.error("Error accessing camera:", err);
+      }
+    }
+
+    function captureImage() {
+      try {
+        // If we have a captured image from file input
+        if (capturedImage.style.display !== 'none' && capturedImage.src) {
+          uploadCapturedImage();
+          return;
+        }
+
+        // Otherwise capture from camera stream
+        if (cameraPreview.srcObject) {
+          // Draw to canvas
+          captureCanvas.width = cameraPreview.videoWidth;
+          captureCanvas.height = cameraPreview.videoHeight;
+          const ctx = captureCanvas.getContext('2d');
+          ctx.drawImage(cameraPreview, 0, 0, captureCanvas.width, captureCanvas.height);
+
+          // Convert to image
+          capturedImage.src = captureCanvas.toDataURL('image/jpeg');
+          capturedImage.style.display = 'block';
+          cameraPreview.style.display = 'none';
+
+          // Stop camera stream
+          if (mediaStream) {
+            mediaStream.getTracks().forEach(track => track.stop());
+          }
+
+          // Update UI
+          captureBtn.classList.add('d-none');
+          retakeBtn.classList.remove('d-none');
+        }
+      } catch (err) {
+        console.error("Error capturing image:", err);
+      }
+    }
+
+    function uploadCapturedImage() {
+      // Create form data
+      const formData = new FormData();
+
+      // Convert data URL to blob
+      fetch(capturedImage.src)
+        .then(res => res.blob())
+        .then(blob => {
+          formData.append('food_image', blob, 'capture.jpg');
+
+          // Get cuisine selections
+          const selectedCuisines = Array.from(document.querySelectorAll('#cuisine-buttons-upload .cuisine-button.active'))
+            .map(button => button.dataset.cuisine);
+
+          if (selectedCuisines.length > 0) {
+            formData.append('cuisineTypes', JSON.stringify(selectedCuisines));
+          }
+
+          // Show loading spinner
+          loadingSpinner.classList.remove('d-none');
+
+          // Submit to server
+          fetch('/upload', {
+            method: 'POST',
+            body: formData
+          })
+          .then(response => {
+            if (!response.ok) {
+              throw new Error(`Server responded with ${response.status}`);
+            }
+            return response.text();
+          })
+          .then(html => {
+            document.open();
+            document.write(html);
+            document.close();
+          })
+          .catch(error => {
+            console.error('Error uploading image:', error);
+            loadingSpinner.classList.add('d-none');
+            alert('Error uploading image: ' + error.message);
+          });
+        });
+    }
+
+    function retakePhoto() {
+      // Reset UI
+      capturedImage.style.display = 'none';
+      capturedImage.src = '';
+      retakeBtn.classList.add('d-none');
+      cameraStartBtn.classList.remove('d-none');
+      captureBtn.classList.add('d-none');
+
+      // Reset canvas
+      const ctx = captureCanvas.getContext('2d');
+      ctx.clearRect(0, 0, captureCanvas.width, captureCanvas.height);
+
+      // Make sure camera is stopped
+      if (mediaStream) {
+        mediaStream.getTracks().forEach(track => track.stop());
+        mediaStream = null;
+      }
+    }
+
+    // Speech recognition functionality
+    function setupSpeechRecognition() {
+      try {
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        if (!SpeechRecognition) {
+          throw new Error("Speech recognition not supported");
+        }
+
+        recognition = new SpeechRecognition();
+        recognition.lang = 'en-US';
+        recognition.continuous = true;
+        recognition.interimResults = true;
+
+        recognition.onstart = function() {
+          isRecording = true;
+          voiceStartBtn.classList.add('d-none');
+          voiceStopBtn.classList.remove('d-none');
+          voiceSubmitBtn.classList.add('d-none');
+
+          // Set 60-second timer
+          recordingTimeout = setTimeout(() => {
+            if (isRecording) {
+              stopRecording();
+            }
+          }, 60000);
+        };
+
+        recognition.onresult = function(event) {
+          let interimTranscript = '';
+
+          // Process results
+          for (let i = event.resultIndex; i < event.results.length; i++) {
+            const transcript = event.results[i][0].transcript;
+            if (event.results[i].isFinal) {
+              processVoiceInput(transcript);
+            } else {
+              interimTranscript += transcript;
+            }
+          }
+
+          // Show interim results
+          voiceTextDisplay.innerHTML = interimTranscript;
+        };
+
+        recognition.onerror = function(event) {
+          console.error("Speech recognition error:", event.error);
+          stopRecording();
+        };
+
+        recognition.onend = function() {
+          isRecording = false;
+
+          // Auto-restart if still supposed to be recording
+          if (voiceStopBtn && !voiceStopBtn.classList.contains('d-none')) {
+            try {
+              recognition.start();
+            } catch (e) {
+              console.error("Failed to restart speech recognition:", e);
+              stopRecording();
+            }
+          } else {
+            // Show submit button if we have ingredients
+            if (detectedIngredients.length > 0) {
+              voiceSubmitBtn.classList.remove('d-none');
+            }
+          }
+        };
+
+        // Voice control buttons
+        if (voiceStartBtn) {
+          voiceStartBtn.addEventListener('click', startRecording);
+        }
+
+        if (voiceStopBtn) {
+          voiceStopBtn.addEventListener('click', stopRecording);
+        }
+
+        console.log("Speech recognition initialized");
+      } catch (error) {
+        console.error("Error setting up speech recognition:", error);
+
+        // Disable voice button if not supported
+        if (voiceMethodBtn) {
+          voiceMethodBtn.classList.add('disabled');
+          voiceMethodBtn.title = "Speech recognition not supported in this browser";
+        }
+      }
+    }
+
+    function startRecording() {
+      if (!recognition) {
+        alert("Speech recognition is not supported in this browser");
+        return;
+      }
+
+      try {
+        recognition.start();
+
+        // Reset if starting fresh
+        if (voiceStartBtn.innerText.includes('Start')) {
+          detectedIngredients = [];
+          updateIngredientsList();
+        }
+      } catch (error) {
+        console.error("Error starting speech recognition:", error);
+        alert("Could not start speech recognition");
+      }
+    }
+
+    function stopRecording() {
+      if (recognition) {
+        recognition.stop();
+      }
+
+      isRecording = false;
+
+      // Clear timeout
+      if (recordingTimeout) {
+        clearTimeout(recordingTimeout);
+        recordingTimeout = null;
+      }
+
+      // Update UI
+      voiceStartBtn.classList.remove('d-none');
+      voiceStopBtn.classList.add('d-none');
+
+      // Change button text
+      voiceStartBtn.innerHTML = '<i class="bi bi-mic-fill me-2"></i>Resume Recording';
+
+      // Show submit button if we have ingredients
+      if (detectedIngredients.length > 0) {
+        voiceSubmitBtn.classList.remove('d-none');
+      }
+    }
+
+    function processVoiceInput(transcript) {
+      console.log("Processing:", transcript);
+
+      // Add to display
+      if (voiceTextDisplay.innerHTML) {
+        voiceTextDisplay.innerHTML += '\n' + transcript;
+      } else {
+        voiceTextDisplay.innerHTML = transcript;
+      }
+
+      // Extract ingredients
+      const chunks = transcript.toLowerCase().split(/[,.\s]+/).filter(item => item.trim().length > 0);
+
+      // Filter out stop words
+      const stopWords = ['i', 'have', 'want', 'need', 'some', 'a', 'an', 'the', 'to', 'and', 'is', 'are', 'with', 'please', 'can', 'for', 'of', 'in', 'on'];
+
+      chunks.forEach(chunk => {
+        // Skip stop words
+        if (stopWords.includes(chunk) || chunk.length <= 1) return;
+
+        // Add unique ingredients
+        if (!detectedIngredients.includes(chunk)) {
+          detectedIngredients.push(chunk);
+        }
+      });
+
+      // Update display
+      updateIngredientsList();
+    }
+
+    function updateIngredientsList() {
+      if (!voiceIngredientsDisplay || !noIngredientsMessage) return;
+
+      if (detectedIngredients.length === 0) {
+        voiceIngredientsDisplay.innerHTML = '';
+        noIngredientsMessage.style.display = 'block';
+        if (voiceSubmitBtn) voiceSubmitBtn.classList.add('d-none');
+        return;
+      }
+
+      noIngredientsMessage.style.display = 'none';
+      voiceIngredientsDisplay.innerHTML = '';
+
+      // Create tags
+      detectedIngredients.forEach(ingredient => {
+        const tag = document.createElement('span');
+        tag.className = 'voice-ingredient-tag';
+        tag.textContent = ingredient;
+        voiceIngredientsDisplay.appendChild(tag);
+      });
+
+      // Show submit button if not recording
+      if (voiceSubmitBtn && !isRecording) {
+        voiceSubmitBtn.classList.remove('d-none');
+      }
+    }
+  </script>
+</body>
+</html>

@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Recipe Generator</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.8.1/font/bootstrap-icons.css">
+  <link rel="stylesheet" href="/css/style.css">
+  <style>
+    .cuisine-option {
+      cursor: pointer;
+      border: 2px solid transparent;
+      padding: 10px;
+      border-radius: 8px;
+      transition: all 0.2s;
+      text-align: center;
+      margin-bottom: 10px;
+    }
+    .cuisine-option.selected {
+      border-color: #0d6efd;
+      background-color: rgba(13, 110, 253, 0.1);
+    }
+    .cuisine-option img {
+      width: 50px;
+      height: 50px;
+      object-fit: cover;
+      margin-bottom: 5px;
+    }
+    .input-section {
+      padding: 20px;
+      border-radius: 10px;
+      box-shadow: 0 0 15px rgba(0,0,0,0.1);
+      margin-bottom: 20px;
+    }
+    .camera-button, .voice-button {
+      font-size: 1.5rem;
+      width: 100%;
+      margin-bottom: 10px;
+    }
+    #imagePreview {
+      max-height: 200px;
+      margin-top: 10px;
+      display: none;
+    }
+    .recording-indicator {
+      color: red;
+      animation: blink 1s infinite;
+    }
+    @keyframes blink {
+      0% { opacity: 1; }
+      50% { opacity: 0.5; }
+      100% { opacity: 1; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container my-5">
+    <div class="row justify-content-center">
+      <div class="col-md-10">
+        <div class="card shadow">
+          <div class="card-header bg-primary text-white">
+            <h1 class="text-center mb-0">AI Recipe Generator</h1>
+          </div>
+          <div class="card-body">
+            <form action="/analyze" method="POST" enctype="multipart/form-data">
+              <!-- Input Methods Section -->
+              <div class="input-section mb-4">
+                <h2 class="mb-3">1. How would you like to add ingredients?</h2>
+                <div class="row">
+                  <div class="col-md-4 mb-3">
+                    <button type="button" class="btn btn-outline-primary camera-button" id="cameraButton" onclick="document.getElementById('imageUpload').click()">
+                      <i class="bi bi-camera"></i><br>Take Photo
+                    </button>
+                    <input type="file" id="imageUpload" name="image" class="d-none" accept="image/*" capture="environment" onchange="previewImage(this)">
+                    <div class="d-flex justify-content-center">
+                      <div id="imagePreview" class="text-center mt-3 mb-4" style="display: none;">
+                        <img class="img-fluid rounded mx-auto d-block" style="max-height: 200px;" />
+                      </div>
+                    </div>
+                  </div>
+                  <div class="col-md-4 mb-3">
+                    <button type="button" class="btn btn-outline-primary voice-button" id="voiceButton">
+                      <i class="bi bi-mic"></i><br>Voice Input
+                      <span id="recordingIndicator" class="d-none recording-indicator">
+                        <i class="bi bi-record-circle"></i> Recording...
+                      </span>
+                    </button>
+                  </div>
+                  <div class="col-md-4 mb-3">
+                    <button type="button" class="btn btn-outline-primary camera-button" id="uploadButton" onclick="document.getElementById('fileUpload').click()">
+                      <i class="bi bi-upload"></i><br>Upload Image
+                    </button>
+                    <input type="file" id="fileUpload" name="image" class="d-none" accept="image/*" onchange="previewImage(this)">
+                  </div>
+                </div>
+                <div class="mt-5">
+                  <button type="button" class="btn btn-outline-secondary mb-2" id="toggleTextInput">
+                    <i class="bi bi-keyboard"></i> Type Ingredients
+                  </button>
+                  <button type="button" class="btn btn-outline-secondary mb-2 image-toggle-btn" style="display: none;">
+                    <i class="bi bi-image"></i> Image Method
+                  </button>
+                  <div id="textInputContainer" style="display: block;">
+                    <label for="ingredients" class="form-label">Enter ingredients (comma separated):</label>
+                    <div class="input-group">
+                      <input type="text" class="form-control" name="ingredients" id="ingredients" placeholder="bread, cheese, tomato">
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Cuisine Selection Section -->
+              <div class="input-section mb-4">
+                <h2 class="mb-3">2. Select Cuisine Types (Optional)</h2>
+                <div class="row">
+                  <% const cuisines = [
+                    { id: 'italian', name: 'Italian', icon: '🍝' },
+                    { id: 'mexican', name: 'Mexican', icon: '🌮' },
+                    { id: 'chinese', name: 'Chinese', icon: '🥢' },
+                    { id: 'japanese', name: 'Japanese', icon: '🍣' },
+                    { id: 'indian', name: 'Indian', icon: '🍛' },
+                    { id: 'american', name: 'American', icon: '🍔' },
+                    { id: 'french', name: 'French', icon: '🥐' },
+                    { id: 'mediterranean', name: 'Mediterranean', icon: '🫒' },
+                    { id: 'thai', name: 'Thai', icon: '🍜' },
+                    { id: 'korean', name: 'Korean', icon: '🍚' },
+                    { id: 'vietnamese', name: 'Vietnamese', icon: '🍲' },
+                    { id: 'greek', name: 'Greek', icon: '🥙' }
+                  ] %>
+
+                  <% cuisines.forEach(cuisine => { %>
+                    <div class="col-md-2 col-4">
+                      <div class="cuisine-option" onclick="toggleCuisine(this, '<%= cuisine.id %>')">
+                        <div class="cuisine-icon"><%= cuisine.icon %></div>
+                        <div class="cuisine-name"><%= cuisine.name %></div>
+                        <input type="checkbox" name="cuisines" value="<%= cuisine.id %>" class="d-none cuisine-checkbox">
+                      </div>
+                    </div>
+                  <% }); %>
+                </div>
+              </div>
+
+              <!-- Hidden input fields -->
+              <input type="hidden" id="selectedCuisines" name="cuisines" value="">
+              <input type="hidden" id="inputMethod" name="inputMethod" value="text">
+
+              <div class="text-center mt-4">
+                <button type="submit" id="submitButton" class="btn btn-success btn-lg">Generate Recipes</button>
+                <div id="processingIndicator" class="d-none mt-3">
+                  <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">Loading...</span>
+                  </div>
+                  <p class="mt-2">Processing your ingredients...</p>
+                </div>
+              </div>
+            </form>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Set default input method on page load
+    document.addEventListener('DOMContentLoaded', function() {
+      // Set default input method to text
+      const inputMethod = document.getElementById('inputMethod');
+      if (inputMethod) {
+        inputMethod.value = 'text';
+      }
+    });
+    
+    // Image preview
+    function previewImage(input) {
+      if (input.files && input.files[0]) {
+        const reader = new FileReader();
+
+        reader.onload = function(e) {
+          const preview = document.getElementById('imagePreview');
+          const imgElement = preview.querySelector('img') || preview.appendChild(document.createElement('img'));
+          imgElement.src = e.target.result;
+          imgElement.alt = 'Preview';
+          imgElement.className = 'img-fluid rounded';
+          imgElement.style.maxWidth = '100%';
+          imgElement.style.maxHeight = '200px';
+          preview.style.display = 'block';
+        }
+
+        reader.readAsDataURL(input.files[0]);
+      } else {
+        const preview = document.getElementById('imagePreview');
+        preview.style.display = 'none';
+      }
+    }
+
+    // Cuisine selection
+    function toggleCuisine(element, cuisineId) {
+      element.classList.toggle('selected');
+      const checkbox = element.querySelector('input[type="checkbox"]');
+      checkbox.checked = !checkbox.checked;
+      const selectedCuisines = document.getElementById('selectedCuisines');
+      const selectedCuisineList = Array.from(document.querySelectorAll('.cuisine-option.selected'))
+        .map(el => el.querySelector('input[type="checkbox"]').value);
+      selectedCuisines.value = selectedCuisineList.join(',');
+    }
+
+    // Voice recognition
+    document.getElementById('voiceButton').addEventListener('click', function() {
+      const ingredientsInput = document.getElementById('ingredients');
+      const recordingIndicator = document.getElementById('recordingIndicator');
+
+      if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        const recognition = new SpeechRecognition();
+
+        recognition.lang = 'en-US';
+        recognition.continuous = false;
+        recognition.interimResults = false;
+
+        recognition.onstart = function() {
+          recordingIndicator.classList.remove('d-none');
+          this.innerHTML = '<i class="bi bi-stop-circle"></i><br>Stop';
+        };
+
+        recognition.onresult = function(event) {
+          const transcript = event.results[0][0].transcript;
+          ingredientsInput.value = transcript;
+        };
+
+        recognition.onerror = function(event) {
+          console.error('Speech recognition error', event.error);
+          recordingIndicator.classList.add('d-none');
+        };
+
+        recognition.onend = function() {
+          recordingIndicator.classList.add('d-none');
+          document.getElementById('voiceButton').innerHTML = '<i class="bi bi-mic"></i><br>Voice Input';
+        };
+
+        recognition.start();
+      } else {
+        alert('Speech recognition is not supported in your browser. Please try another method.');
+      }
+    });
+
+    // Track which input method is active
+    let currentInputMethod = '';
+
+    // Set input method when file is uploaded
+    document.querySelectorAll('#imageUpload, #fileUpload').forEach(input => {
+      input.addEventListener('change', function() {
+        if (this.files.length > 0) {
+          currentInputMethod = 'image';
+          document.getElementById('inputMethod').value = 'image';
+          // Clear text input when image is selected
+          document.getElementById('ingredients').value = '';
+          // Highlight that image input is active
+          document.querySelector('.image-toggle-btn').classList.add('btn-success');
+          document.querySelector('.image-toggle-btn').classList.remove('btn-outline-secondary');
+          document.querySelector('#toggleTextInput').classList.remove('btn-success');
+          document.querySelector('#toggleTextInput').classList.add('btn-outline-secondary');
+        }
+      });
+    });
+
+    // Set input method when text is entered
+    document.getElementById('ingredients').addEventListener('input', function() {
+      if (this.value.trim() !== '') {
+        currentInputMethod = 'text';
+        document.getElementById('inputMethod').value = 'text';  // Explicitly set input method to text
+        // Clear image inputs when text is entered
+        document.getElementById('imageUpload').value = '';
+        document.getElementById('fileUpload').value = '';
+        // Highlight that text input is active
+        document.querySelector('#toggleTextInput').classList.add('btn-success');
+        document.querySelector('#toggleTextInput').classList.remove('btn-outline-secondary');
+        document.querySelector('.image-toggle-btn').classList.remove('btn-success');
+        document.querySelector('.image-toggle-btn').classList.add('btn-outline-secondary');
+      }
+    });
+
+    // Form submission validation and processing indicator
+    document.querySelector('form').addEventListener('submit', function(e) {
+      // Ensure we have the input method field
+      const inputMethodField = document.getElementById('inputMethod');
+      const ingredientsField = document.getElementById('ingredients');
+      const imageUpload = document.getElementById('imageUpload');
+      const fileUpload = document.getElementById('fileUpload');
+      
+      // Check what input is provided
+      const hasImageInput = (imageUpload && imageUpload.files.length > 0) || 
+                           (fileUpload && fileUpload.files.length > 0);
+      const hasTextInput = ingredientsField && ingredientsField.value.trim() !== '';
+      
+      console.log("Form submission check - Has image:", hasImageInput, "Has text:", hasTextInput);
+      
+      // Make sure the inputMethod is set correctly based on what's actually provided
+      if (hasImageInput) {
+        // Image takes precedence if both are provided
+        inputMethodField.value = 'image';
+        console.log("Setting input method to image");
+      } else if (hasTextInput) {
+        inputMethodField.value = 'text';
+        console.log("Setting input method to text");
+      } else {
+        // No valid input
+        e.preventDefault();
+        alert('Please provide ingredients by uploading an image, taking a photo, or typing them in.');
+        return false;
+      }
+      
+      console.log("Submitting with input method:", inputMethodField.value);
+
+      // Show processing indicator
+      const submitButton = document.getElementById('submitButton');
+      const processingIndicator = document.getElementById('processingIndicator');
+
+      submitButton.disabled = true;
+      processingIndicator.classList.remove('d-none');
+      submitButton.innerHTML = 'Processing...';
+
+      // Continue with form submission
+      return true;
+    });
+
+    // Toggle text input visibility
+    document.getElementById('toggleTextInput').addEventListener('click', function() {
+      const textInputContainer = document.getElementById('textInputContainer');
+      if (textInputContainer.style.display === 'none') {
+        textInputContainer.style.display = 'block';
+      } else {
+        textInputContainer.style.display = 'none';
+      }
+    });
+  </script>
+</body>
+</html>
